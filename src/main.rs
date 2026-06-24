@@ -374,7 +374,6 @@ fn add_smoke(
     cols: u16,
     rows: u16,
 ) -> Result<()> {
-    //state.drops.retain(|d| d.ptrn < SMOKEPTNS - 1 || d.x < cols as i32);
     if x % 4 == 0 {
         for drop in state.drops.iter_mut() {
             my_mvaddstr(stdout, drop.y, drop.x, ERASER[drop.ptrn], cols, rows)?;
@@ -401,6 +400,7 @@ fn add_smoke(
         });
         state.next_kind += 1;
     }
+    state.drops.retain(|d| d.ptrn < SMOKEPTNS - 1 || d.x < cols as i32);
     Ok(())
 }
 
