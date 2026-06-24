@@ -6,7 +6,8 @@ use crossterm::{
     terminal::{self, Clear, ClearType, size},
 };
 use std::io::Result;
-use std::io::{Write, stdout};
+use std::io::Write;
+//use std::io::{Write, stdout};
 use std::time::Duration;
 
 const D51HEIGHT: usize = 10;
@@ -522,7 +523,7 @@ pub struct TerminalGuard;
 impl TerminalGuard {
     pub fn new() -> Result<Self> {
         crossterm::execute!(
-            stdout(),
+            std::io::stdout(),
             style::ResetColor,
             terminal::EnterAlternateScreen,
             terminal::Clear(terminal::ClearType::All),
@@ -538,20 +539,19 @@ impl TerminalGuard {
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
+        let _ = terminal::disable_raw_mode();
         let _ = crossterm::execute!(
-            stdout(),
+            std::io::stdout(),
             terminal::LeaveAlternateScreen,
             cursor::Show
         );
-
-        let _ = terminal::disable_raw_mode();
     }
 }
 
 fn main() -> Result<()> {
     let config = Config::parse();
 
-    let mut stdout = stdout();
+    let mut stdout = std::io::stdout();
 
     let _guard = TerminalGuard::new()?; // prefixed with _ to avoid 'unused' compiler warning.
 
