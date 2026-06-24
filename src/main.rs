@@ -424,7 +424,7 @@ fn add_smoke(
     }
     state
         .drops
-        .retain(|d| d.ptrn < SMOKEPTNS - 1 || d.x < cols as i32);
+        .retain(|d| d.ptrn < SMOKEPTNS - 1 && d.x < cols as i32);
     Ok(())
 }
 
