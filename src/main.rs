@@ -292,7 +292,7 @@ struct SmokeDrop {
 
 struct SmokeState {
     drops: Vec<SmokeDrop>,
-    sum: usize,
+    next_kind: usize,
 }
 
 #[derive(Parser, Debug)]
@@ -392,14 +392,14 @@ fn add_smoke(
                 rows,
             )?;
         }
-        my_mvaddstr(stdout, y, x, SMOKE[state.sum % 2][0], cols, rows)?;
+        my_mvaddstr(stdout, y, x, SMOKE[state.next_kind % 2][0], cols, rows)?;
         state.drops.push(SmokeDrop {
             y,
             x,
             ptrn: 0,
-            kind: state.sum % 2,
+            kind: state.next_kind % 2,
         });
-        state.sum += 1;
+        state.next_kind += 1;
     }
     Ok(())
 }
@@ -411,9 +411,9 @@ fn add_d51(
     cols: u16,
     rows: u16,
     smokes: &mut SmokeState,
-) -> bool {
+) -> Result<bool> {
     if x < -D51LENGTH {
-        return false;
+        return Ok(false);
     }
     let mut y = (rows / 2) as i32 - 5;
     let mut dy = 0;
@@ -425,17 +425,17 @@ fn add_d51(
 
     let ptrn = ((D51LENGTH + x) % D51PATTERNS as i32) as usize;
     for i in 0..=D51HEIGHT {
-        my_mvaddstr(stdout, y + i as i32, x, D51_ARR[ptrn][i], cols, rows).unwrap();
-        my_mvaddstr(stdout, y + i as i32 + dy, x + 53, D51_COAL[i], cols, rows).unwrap();
+        my_mvaddstr(stdout, y + i as i32, x, D51_ARR[ptrn][i], cols, rows)?;
+        my_mvaddstr(stdout, y + i as i32 + dy, x + 53, D51_COAL[i], cols, rows)?;
     }
 
     if config.accident {
-        add_man(stdout, y + 2, x + 43, x, cols, rows).unwrap();
-        add_man(stdout, y + 2, x + 47, x, cols, rows).unwrap();
+        add_man(stdout, y + 2, x + 43, x, cols, rows)?;
+        add_man(stdout, y + 2, x + 47, x, cols, rows)?;
     }
 
-    add_smoke(stdout, y - 1, x + D51FUNNEL, smokes, cols, rows).unwrap();
-    true
+    add_smoke(stdout, y - 1, x + D51FUNNEL, smokes, cols, rows)?;
+    Ok(true)
 }
 
 fn add_c51(
@@ -445,9 +445,9 @@ fn add_c51(
     cols: u16,
     rows: u16,
     smokes: &mut SmokeState,
-) -> bool {
+) -> Result<bool> {
     if x < -C51LENGTH {
-        return false;
+        return Ok(false);
     }
     let mut y = (rows / 2) as i32 - 5;
     let mut dy = 0;
@@ -459,17 +459,17 @@ fn add_c51(
 
     let ptrn = ((C51LENGTH + x) % C51PATTERNS as i32) as usize;
     for i in 0..=C51HEIGHT {
-        my_mvaddstr(stdout, y + i as i32, x, C51_ARR[ptrn][i], cols, rows).unwrap();
-        my_mvaddstr(stdout, y + i as i32 + dy, x + 55, C51_COAL[i], cols, rows).unwrap();
+        my_mvaddstr(stdout, y + i as i32, x, C51_ARR[ptrn][i], cols, rows)?;
+        my_mvaddstr(stdout, y + i as i32 + dy, x + 55, C51_COAL[i], cols, rows)?;
     }
 
     if config.accident {
-        add_man(stdout, y + 3, x + 45, x, cols, rows).unwrap();
-        add_man(stdout, y + 3, x + 49, x, cols, rows).unwrap();
+        add_man(stdout, y + 3, x + 45, x, cols, rows)?;
+        add_man(stdout, y + 3, x + 49, x, cols, rows)?;
     }
 
-    add_smoke(stdout, y - 1, x + C51FUNNEL, smokes, cols, rows).unwrap();
-    true
+    add_smoke(stdout, y - 1, x + C51FUNNEL, smokes, cols, rows)?;
+    Ok(true)
 }
 
 fn add_sl(
@@ -479,9 +479,9 @@ fn add_sl(
     cols: u16,
     rows: u16,
     smokes: &mut SmokeState,
-) -> bool {
+) -> Result<bool> {
     if x < -LOGOLENGTH {
-        return false;
+        return Ok(false);
     }
     let mut y = (rows / 2) as i32 - 3;
     let mut py1 = 0;
@@ -497,22 +497,22 @@ fn add_sl(
 
     let ptrn = (((LOGOLENGTH + x) / 3) % LOGOPATTERNS as i32) as usize;
     for i in 0..=LOGOHEIGHT {
-        my_mvaddstr(stdout, y + i as i32, x, SL_ARR[ptrn][i], cols, rows).unwrap();
-        my_mvaddstr(stdout, y + i as i32 + py1, x + 21, LCOAL_ARR[i], cols, rows).unwrap();
-        my_mvaddstr(stdout, y + i as i32 + py2, x + 42, LCAR_ARR[i], cols, rows).unwrap();
-        my_mvaddstr(stdout, y + i as i32 + py3, x + 63, LCAR_ARR[i], cols, rows).unwrap();
+        my_mvaddstr(stdout, y + i as i32, x, SL_ARR[ptrn][i], cols, rows)?;
+        my_mvaddstr(stdout, y + i as i32 + py1, x + 21, LCOAL_ARR[i], cols, rows)?;
+        my_mvaddstr(stdout, y + i as i32 + py2, x + 42, LCAR_ARR[i], cols, rows)?;
+        my_mvaddstr(stdout, y + i as i32 + py3, x + 63, LCAR_ARR[i], cols, rows)?;
     }
 
     if config.accident {
-        add_man(stdout, y + 1, x + 14, x, cols, rows).unwrap();
-        add_man(stdout, y + 1 + py2, x + 45, x, cols, rows).unwrap();
-        add_man(stdout, y + 1 + py2, x + 53, x, cols, rows).unwrap();
-        add_man(stdout, y + 1 + py3, x + 66, x, cols, rows).unwrap();
-        add_man(stdout, y + 1 + py3, x + 74, x, cols, rows).unwrap();
+        add_man(stdout, y + 1, x + 14, x, cols, rows)?;
+        add_man(stdout, y + 1 + py2, x + 45, x, cols, rows)?;
+        add_man(stdout, y + 1 + py2, x + 53, x, cols, rows)?;
+        add_man(stdout, y + 1 + py3, x + 66, x, cols, rows)?;
+        add_man(stdout, y + 1 + py3, x + 74, x, cols, rows)?;
     }
 
-    add_smoke(stdout, y - 1, x + LOGOFUNNEL, smokes, cols, rows).unwrap();
-    true
+    add_smoke(stdout, y - 1, x + LOGOFUNNEL, smokes, cols, rows)?;
+    Ok(true)
 }
 
 /// Initialise the terminal and make sure it is not left in raw mode when the
@@ -558,7 +558,7 @@ fn main() -> Result<()> {
     let (mut cols, mut rows) = size()?;
     let mut smokes = SmokeState {
         drops: Vec::new(),
-        sum: 0,
+        next_kind: 0,
     };
     let mut x = cols as i32 - 1;
 
@@ -584,11 +584,11 @@ fn main() -> Result<()> {
         }
 
         let continue_loop = if config.logo {
-            add_sl(&mut stdout, x, &config, cols, rows, &mut smokes)
+            add_sl(&mut stdout, x, &config, cols, rows, &mut smokes)?
         } else if config.c51 {
-            add_c51(&mut stdout, x, &config, cols, rows, &mut smokes)
+            add_c51(&mut stdout, x, &config, cols, rows, &mut smokes)?
         } else {
-            add_d51(&mut stdout, x, &config, cols, rows, &mut smokes)
+            add_d51(&mut stdout, x, &config, cols, rows, &mut smokes)?
         };
 
         if !continue_loop {
