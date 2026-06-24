@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use crossterm::{
     cursor,
     event::{Event, KeyCode, KeyEvent, KeyModifiers, poll, read},
@@ -296,17 +296,38 @@ struct SmokeState {
     next_kind: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum TrainKind {
+    #[default]
+    D51,
+    C51,
+    Logo,
+}
+
+//#[derive(Parser, Debug)]
+//#[command(author, version, about = "Steam Locomotive (sl) in Rust", long_about = None)]
+//struct Config {
+//    #[arg(short = 'a', help = "Accident - people cry for help")]
+//    accident: bool,
+//    #[arg(short = 'F', help = "Fly - train flies")]
+//    fly: bool,
+//    #[arg(short = 'l', help = "Logo - draw a miniature sl")]
+//    logo: bool,
+//    #[arg(short = 'c', help = "C51 - draw C51 train instead of D51")]
+//    c51: bool,
+//}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Steam Locomotive (sl) in Rust", long_about = None)]
 struct Config {
     #[arg(short = 'a', help = "Accident - people cry for help")]
     accident: bool,
+
     #[arg(short = 'F', help = "Fly - train flies")]
     fly: bool,
-    #[arg(short = 'l', help = "Logo - draw a miniature sl")]
-    logo: bool,
-    #[arg(short = 'c', help = "C51 - draw C51 train instead of D51")]
-    c51: bool,
+
+    #[arg(short = 't', long = "train", value_enum, ignore_case = true, default_value_t = TrainKind::D51, help = "Choose the train model (d51, c51, or logo)")]
+    train_kind: TrainKind,
 }
 
 fn my_mvaddstr(
@@ -361,7 +382,7 @@ fn add_man(
 ) -> Result<()> {
     let man = [["", "(O)"], ["Help!", "\\O/"]];
     let ptrn = (((LOGOLENGTH + global_x) / 12) % 2) as usize;
-    for (i,m) in man[ptrn].iter().enumerate() {
+    for (i, m) in man[ptrn].iter().enumerate() {
         my_mvaddstr(stdout, y + i as i32, x, m, cols, rows)?;
     }
     Ok(())
@@ -401,17 +422,19 @@ fn add_smoke(
         });
         state.next_kind += 1;
     }
-    state.drops.retain(|d| d.ptrn < SMOKEPTNS - 1 || d.x < cols as i32);
+    state
+        .drops
+        .retain(|d| d.ptrn < SMOKEPTNS - 1 || d.x < cols as i32);
     Ok(())
 }
 
 fn add_d51(
     stdout: &mut impl Write,
     x: i32,
-    config: &Config,
     cols: u16,
     rows: u16,
     smokes: &mut SmokeState,
+    config: &Config,
 ) -> Result<bool> {
     if x < -D51LENGTH {
         return Ok(false);
@@ -442,10 +465,10 @@ fn add_d51(
 fn add_c51(
     stdout: &mut impl Write,
     x: i32,
-    config: &Config,
     cols: u16,
     rows: u16,
     smokes: &mut SmokeState,
+    config: &Config,
 ) -> Result<bool> {
     if x < -C51LENGTH {
         return Ok(false);
@@ -476,10 +499,10 @@ fn add_c51(
 fn add_sl(
     stdout: &mut impl Write,
     x: i32,
-    config: &Config,
     cols: u16,
     rows: u16,
     smokes: &mut SmokeState,
+    config: &Config,
 ) -> Result<bool> {
     if x < -LOGOLENGTH {
         return Ok(false);
@@ -583,12 +606,10 @@ fn main() -> Result<()> {
             }
         }
 
-        let continue_loop = if config.logo {
-            add_sl(&mut stdout, x, &config, cols, rows, &mut smokes)?
-        } else if config.c51 {
-            add_c51(&mut stdout, x, &config, cols, rows, &mut smokes)?
-        } else {
-            add_d51(&mut stdout, x, &config, cols, rows, &mut smokes)?
+        let continue_loop = match config.train_kind {
+            TrainKind::Logo => add_sl(&mut stdout, x, cols, rows, &mut smokes, &config)?,
+            TrainKind::C51 => add_c51(&mut stdout, x, cols, rows, &mut smokes, &config)?,
+            TrainKind::D51 => add_d51(&mut stdout, x, cols, rows, &mut smokes, &config)?,
         };
 
         if !continue_loop {
