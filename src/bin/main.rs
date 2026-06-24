@@ -4,7 +4,7 @@ use crossterm::{
     queue,
     style::Print,
 };
-use std::io::{Result, Write, stdout};
+use std::io::{Result, Write};
 use std::time::Duration;
 
 // --- D51 Constants ---
@@ -148,34 +148,6 @@ const C51WH12: &str = r#"------'|oOo|=[]=-      ||      ||      |  ||=======_|__
 const C51WH13: &str = r#"/~\____|___|/~\_|  O=======O=======O   |__|+-/~\_|     "#;
 const C51WH14: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
 
-// --- State Structs ---
-struct State {
-    accident: bool,
-    logo: bool,
-    fly: bool,
-    c51: bool,
-}
-
-// --- Drawing Helper ---
-fn my_mvaddstr(
-    stdout: &mut impl Write,
-    y: i32,
-    x: i32,
-    s: &str,
-    cols: u16,
-    rows: u16,
-) -> Result<()> {
-    if (0..rows as i32).contains(&y) {
-        for (i, c) in s.chars().enumerate() {
-            let x = x + i as i32;
-            if (0..cols as i32).contains(&x) {
-                queue!(stdout, MoveTo(x as u16, y as u16), Print(c))?;
-            }
-        }
-    }
-    Ok(())
-}
-
 // --- Smoke Logic ---
 const SMOKEPTNS: usize = 16;
 const SMOKE: [[&str; SMOKEPTNS]; 2] = [
@@ -208,32 +180,18 @@ struct SmokeEnv {
 }
 
 impl SmokeEnv {
-    fn add_smoke(
-        &mut self,
-        stdout: &mut impl Write,
-        y: i32,
-        x: i32,
-        cols: u16,
-        rows: u16,
-    ) -> Result<()> {
+    fn add_smoke(&mut self, tui: &mut Tui, y: i32, x: i32) -> Result<()> {
         if x % 4 == 0 {
             for smoke in &mut self.smokes {
-                my_mvaddstr(stdout, smoke.y, smoke.x, ERASER[smoke.ptrn], cols, rows)?;
+                tui.my_mvaddstr(smoke.y, smoke.x, ERASER[smoke.ptrn])?;
                 smoke.y -= DY[smoke.ptrn];
                 smoke.x += DX[smoke.ptrn];
                 if smoke.ptrn < SMOKEPTNS - 1 {
                     smoke.ptrn += 1;
                 }
-                my_mvaddstr(
-                    stdout,
-                    smoke.y,
-                    smoke.x,
-                    SMOKE[smoke.kind][smoke.ptrn],
-                    cols,
-                    rows,
-                )?;
+                tui.my_mvaddstr(smoke.y, smoke.x, SMOKE[smoke.kind][smoke.ptrn])?;
             }
-            my_mvaddstr(stdout, y, x, SMOKE[self.smoke_count % 2][0], cols, rows)?;
+            tui.my_mvaddstr(y, x, SMOKE[self.smoke_count % 2][0])?;
             self.smokes.push(Smoke {
                 y,
                 x,
@@ -246,206 +204,7 @@ impl SmokeEnv {
     }
 }
 
-// --- Little Men Logic ---
-fn add_man(stdout: &mut impl Write, y: i32, x: i32, cols: u16, rows: u16) -> Result<()> {
-    let man = [["", "(O)"], ["Help!", "\\O/"]];
-    let idx = ((LOGOLENGTH + x) / 12 % 2) as usize;
-    for i in 0..2 {
-        my_mvaddstr(stdout, y + i, x, man[idx][i as usize], cols, rows)?;
-    }
-    Ok(())
-}
-
 // --- Train Logic ---
-fn add_sl(
-    stdout: &mut impl Write,
-    env: &mut SmokeEnv,
-    state: &State,
-    x: i32,
-    cols: u16,
-    rows: u16,
-) -> Result<bool> {
-    if x < -LOGOLENGTH {
-        return Ok(false);
-    }
-
-    let sl: [[&str; 7]; LOGOPATTERNS] = [
-        [LOGO1, LOGO2, LOGO3, LOGO4, LWHL11, LWHL12, DELLN],
-        [LOGO1, LOGO2, LOGO3, LOGO4, LWHL21, LWHL22, DELLN],
-        [LOGO1, LOGO2, LOGO3, LOGO4, LWHL31, LWHL32, DELLN],
-        [LOGO1, LOGO2, LOGO3, LOGO4, LWHL41, LWHL42, DELLN],
-        [LOGO1, LOGO2, LOGO3, LOGO4, LWHL51, LWHL52, DELLN],
-        [LOGO1, LOGO2, LOGO3, LOGO4, LWHL61, LWHL62, DELLN],
-    ];
-    let coal = [LCOAL1, LCOAL2, LCOAL3, LCOAL4, LCOAL5, LCOAL6, DELLN];
-    let car = [LCAR1, LCAR2, LCAR3, LCAR4, LCAR5, LCAR6, DELLN];
-
-    let mut y = (rows as i32) / 2 - 3;
-    let mut py1 = 0;
-    let mut py2 = 0;
-    let mut py3 = 0;
-
-    if state.fly {
-        y = (x / 6) + (rows as i32) - (cols as i32 / 6) - LOGOHEIGHT;
-        py1 = 2;
-        py2 = 4;
-        py3 = 6;
-    }
-
-    let ptn = ((LOGOLENGTH + x) / 3 % LOGOPATTERNS as i32) as usize;
-
-    for i in 0..=LOGOHEIGHT {
-        let i_usize = i as usize;
-        my_mvaddstr(stdout, y + i, x, sl[ptn][i_usize], cols, rows)?;
-        my_mvaddstr(stdout, y + i + py1, x + 21, coal[i_usize], cols, rows)?;
-        my_mvaddstr(stdout, y + i + py2, x + 42, car[i_usize], cols, rows)?;
-        my_mvaddstr(stdout, y + i + py3, x + 63, car[i_usize], cols, rows)?;
-    }
-
-    if state.accident {
-        add_man(stdout, y + 1, x + 14, cols, rows)?;
-        add_man(stdout, y + 1 + py2, x + 45, cols, rows)?;
-        add_man(stdout, y + 1 + py2, x + 53, cols, rows)?;
-        add_man(stdout, y + 1 + py3, x + 66, cols, rows)?;
-        add_man(stdout, y + 1 + py3, x + 74, cols, rows)?;
-    }
-    env.add_smoke(stdout, y - 1, x + LOGOFUNNEL, cols, rows)?;
-    Ok(true)
-}
-
-fn add_d51(
-    stdout: &mut impl Write,
-    env: &mut SmokeEnv,
-    state: &State,
-    x: i32,
-    cols: u16,
-    rows: u16,
-) -> Result<bool> {
-    if x < -D51LENGTH {
-        return Ok(false);
-    }
-
-    let d51: [[&str; 11]; D51PATTERNS] = [
-        [
-            D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL11, D51WHL12,
-            D51WHL13, D51DEL,
-        ],
-        [
-            D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL21, D51WHL22,
-            D51WHL23, D51DEL,
-        ],
-        [
-            D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL31, D51WHL32,
-            D51WHL33, D51DEL,
-        ],
-        [
-            D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL41, D51WHL42,
-            D51WHL43, D51DEL,
-        ],
-        [
-            D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL51, D51WHL52,
-            D51WHL53, D51DEL,
-        ],
-        [
-            D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL61, D51WHL62,
-            D51WHL63, D51DEL,
-        ],
-    ];
-    let coal = [
-        COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09, COAL10, COALDEL,
-    ];
-
-    let mut y = (rows as i32) / 2 - 5;
-    let mut dy = 0;
-
-    if state.fly {
-        y = (x / 7) + (rows as i32) - (cols as i32 / 7) - D51HEIGHT;
-        dy = 1;
-    }
-
-    let ptn = ((D51LENGTH + x) as usize) % D51PATTERNS;
-
-    for i in 0..=D51HEIGHT {
-        let i_usize = i as usize;
-        my_mvaddstr(stdout, y + i, x, d51[ptn][i_usize], cols, rows)?;
-        my_mvaddstr(stdout, y + i + dy, x + 53, coal[i_usize], cols, rows)?;
-    }
-
-    if state.accident {
-        add_man(stdout, y + 2, x + 43, cols, rows)?;
-        add_man(stdout, y + 2, x + 47, cols, rows)?;
-    }
-    env.add_smoke(stdout, y - 1, x + D51FUNNEL, cols, rows)?;
-    Ok(true)
-}
-
-fn add_c51(
-    stdout: &mut impl Write,
-    env: &mut SmokeEnv,
-    state: &State,
-    x: i32,
-    cols: u16,
-    rows: u16,
-) -> Result<bool> {
-    if x < -C51LENGTH {
-        return Ok(false);
-    }
-
-    let c51: [[&str; 12]; C51PATTERNS] = [
-        [
-            C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH11, C51WH12,
-            C51WH13, C51WH14, C51DEL,
-        ],
-        [
-            C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH21, C51WH22,
-            C51WH23, C51WH24, C51DEL,
-        ],
-        [
-            C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH31, C51WH32,
-            C51WH33, C51WH34, C51DEL,
-        ],
-        [
-            C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH41, C51WH42,
-            C51WH43, C51WH44, C51DEL,
-        ],
-        [
-            C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH51, C51WH52,
-            C51WH53, C51WH54, C51DEL,
-        ],
-        [
-            C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH61, C51WH62,
-            C51WH63, C51WH64, C51DEL,
-        ],
-    ];
-    let coal = [
-        COALDEL, COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09, COAL10,
-        COALDEL,
-    ];
-
-    let mut y = (rows as i32) / 2 - 5;
-    let mut dy = 0;
-
-    if state.fly {
-        y = (x / 7) + (rows as i32) - (cols as i32 / 7) - C51HEIGHT;
-        dy = 1;
-    }
-
-    let ptn = ((C51LENGTH + x) as usize) % C51PATTERNS;
-
-    for i in 0..=C51HEIGHT {
-        let i_usize = i as usize;
-        my_mvaddstr(stdout, y + i, x, c51[ptn][i_usize], cols, rows)?;
-        my_mvaddstr(stdout, y + i + dy, x + 55, coal[i_usize], cols, rows)?;
-    }
-
-    if state.accident {
-        add_man(stdout, y + 3, x + 45, cols, rows)?;
-        add_man(stdout, y + 3, x + 49, cols, rows)?;
-    }
-    env.add_smoke(stdout, y - 1, x + C51FUNNEL, cols, rows)?;
-    Ok(true)
-}
-
 // Make sure terminal raw mode is disabled before exit
 pub struct TerminalGuard;
 
@@ -475,15 +234,252 @@ impl Drop for TerminalGuard {
     }
 }
 
-// --- Main Program ---
+// --- State Structs ---
+struct State {
+    accident: bool,
+    train: Train,
+    fly: bool,
+}
+
+enum Train {
+    C51,
+    D51,
+    Logo,
+}
+
+struct Tui {
+    _guard: TerminalGuard,
+    stdout: std::io::Stdout,
+    rows: u16,
+    cols: u16,
+}
+
+impl Tui {
+    fn new() -> Result<Self> {
+        let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
+        let mut stdout = std::io::stdout();
+        stdout.flush()?;
+        Ok(Tui {
+            _guard: TerminalGuard::new()?,
+            stdout,
+            rows,
+            cols,
+        })
+    }
+
+    fn my_mvaddstr(&mut self, y: i32, x: i32, s: &str) -> Result<()> {
+        let (rows, cols) = (self.rows as i32, self.cols as i32);
+        if (0..rows).contains(&y) {
+            for (i, c) in s.chars().enumerate() {
+                let x = x + i as i32;
+                if (0..cols).contains(&x) {
+                    queue!(self.stdout, MoveTo(x as u16, y as u16), Print(c))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn add_man(&mut self, y: i32, x: i32) -> Result<()> {
+        let man = [["", "(O)"], ["Help!", "\\O/"]];
+        let idx = ((LOGOLENGTH + x) / 12 % 2) as usize;
+        for i in 0..2 {
+            self.my_mvaddstr(y + i, x, man[idx][i as usize])?;
+        }
+        Ok(())
+    }
+
+    // return true while train is still on screen
+    fn render_train(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+        let done = match state.train {
+            Train::Logo => self.render_sl(env, state, x)?,
+            Train::C51 => self.render_c51(env, state, x)?,
+            Train::D51 => self.render_d51(env, state, x)?,
+        };
+        self.stdout.flush()?;
+        Ok(!done)
+    }
+
+    fn render_sl(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+        if x < -LOGOLENGTH {
+            return Ok(true);
+        }
+
+        let (rows, cols) = (self.rows, self.cols);
+
+        let sl: [[&str; 7]; LOGOPATTERNS] = [
+            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL11, LWHL12, DELLN],
+            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL21, LWHL22, DELLN],
+            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL31, LWHL32, DELLN],
+            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL41, LWHL42, DELLN],
+            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL51, LWHL52, DELLN],
+            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL61, LWHL62, DELLN],
+        ];
+        let coal = [LCOAL1, LCOAL2, LCOAL3, LCOAL4, LCOAL5, LCOAL6, DELLN];
+        let car = [LCAR1, LCAR2, LCAR3, LCAR4, LCAR5, LCAR6, DELLN];
+
+        let mut y = (rows as i32) / 2 - 3;
+        let mut py1 = 0;
+        let mut py2 = 0;
+        let mut py3 = 0;
+
+        if state.fly {
+            y = (x / 6) + (rows as i32) - (cols as i32 / 6) - LOGOHEIGHT;
+            py1 = 2;
+            py2 = 4;
+            py3 = 6;
+        }
+
+        let ptn = ((LOGOLENGTH + x) / 3 % LOGOPATTERNS as i32) as usize;
+
+        for i in 0..=LOGOHEIGHT {
+            let i_usize = i as usize;
+            self.my_mvaddstr(y + i, x, sl[ptn][i_usize])?;
+            self.my_mvaddstr(y + i + py1, x + 21, coal[i_usize])?;
+            self.my_mvaddstr(y + i + py2, x + 42, car[i_usize])?;
+            self.my_mvaddstr(y + i + py3, x + 63, car[i_usize])?;
+        }
+
+        if state.accident {
+            self.add_man(y + 1, x + 14)?;
+            self.add_man(y + 1 + py2, x + 45)?;
+            self.add_man(y + 1 + py2, x + 53)?;
+            self.add_man(y + 1 + py3, x + 66)?;
+            self.add_man(y + 1 + py3, x + 74)?;
+        }
+        env.add_smoke(self, y - 1, x + LOGOFUNNEL)?;
+        Ok(false)
+    }
+
+    fn render_d51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+        if x < -D51LENGTH {
+            return Ok(true);
+        }
+        let (rows, cols) = (self.rows, self.cols);
+
+        let d51: [[&str; 11]; D51PATTERNS] = [
+            [
+                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL11, D51WHL12,
+                D51WHL13, D51DEL,
+            ],
+            [
+                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL21, D51WHL22,
+                D51WHL23, D51DEL,
+            ],
+            [
+                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL31, D51WHL32,
+                D51WHL33, D51DEL,
+            ],
+            [
+                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL41, D51WHL42,
+                D51WHL43, D51DEL,
+            ],
+            [
+                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL51, D51WHL52,
+                D51WHL53, D51DEL,
+            ],
+            [
+                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL61, D51WHL62,
+                D51WHL63, D51DEL,
+            ],
+        ];
+        let coal = [
+            COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09, COAL10, COALDEL,
+        ];
+
+        let mut y = (rows as i32) / 2 - 5;
+        let mut dy = 0;
+
+        if state.fly {
+            y = (x / 7) + (rows as i32) - (cols as i32 / 7) - D51HEIGHT;
+            dy = 1;
+        }
+
+        let ptn = ((D51LENGTH + x) as usize) % D51PATTERNS;
+
+        for i in 0..=D51HEIGHT {
+            let i_usize = i as usize;
+            self.my_mvaddstr(y + i, x, d51[ptn][i_usize])?;
+            self.my_mvaddstr(y + i + dy, x + 53, coal[i_usize])?;
+        }
+
+        if state.accident {
+            self.add_man(y + 2, x + 43)?;
+            self.add_man(y + 2, x + 47)?;
+        }
+        env.add_smoke(self, y - 1, x + D51FUNNEL)?;
+        Ok(false)
+    }
+
+    fn render_c51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+        if x < -C51LENGTH {
+            return Ok(true);
+        }
+        let (rows, cols) = (self.rows, self.cols);
+
+        let c51: [[&str; 12]; C51PATTERNS] = [
+            [
+                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH11, C51WH12,
+                C51WH13, C51WH14, C51DEL,
+            ],
+            [
+                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH21, C51WH22,
+                C51WH23, C51WH24, C51DEL,
+            ],
+            [
+                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH31, C51WH32,
+                C51WH33, C51WH34, C51DEL,
+            ],
+            [
+                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH41, C51WH42,
+                C51WH43, C51WH44, C51DEL,
+            ],
+            [
+                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH51, C51WH52,
+                C51WH53, C51WH54, C51DEL,
+            ],
+            [
+                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH61, C51WH62,
+                C51WH63, C51WH64, C51DEL,
+            ],
+        ];
+        let coal = [
+            COALDEL, COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09,
+            COAL10, COALDEL,
+        ];
+
+        let mut y = (rows as i32) / 2 - 5;
+        let mut dy = 0;
+
+        if state.fly {
+            y = (x / 7) + (rows as i32) - (cols as i32 / 7) - C51HEIGHT;
+            dy = 1;
+        }
+
+        let ptn = ((C51LENGTH + x) as usize) % C51PATTERNS;
+
+        for i in 0..=C51HEIGHT {
+            let i_usize = i as usize;
+            self.my_mvaddstr(y + i, x, c51[ptn][i_usize])?;
+            self.my_mvaddstr(y + i + dy, x + 55, coal[i_usize])?;
+        }
+
+        if state.accident {
+            self.add_man(y + 3, x + 45)?;
+            self.add_man(y + 3, x + 49)?;
+        }
+        env.add_smoke(self, y - 1, x + C51FUNNEL)?;
+        Ok(false)
+    }
+}
+
 fn main() -> Result<()> {
-    let _guard = TerminalGuard::new();
+    let mut tui = Tui::new()?;
 
     let mut state = State {
         accident: false,
-        logo: false,
         fly: false,
-        c51: false,
+        train: Train::D51,
     };
 
     // Parse command line arguments
@@ -493,43 +489,24 @@ fn main() -> Result<()> {
                 match c {
                     'a' => state.accident = true,
                     'F' => state.fly = true,
-                    'l' => state.logo = true,
-                    'c' => state.c51 = true,
+                    'l' => state.train = Train::Logo,
+                    'c' => state.train = Train::C51,
                     _ => {}
                 }
             }
         }
     }
 
-    // Terminal initialization
-    let mut stdout = stdout();
-    let _ = stdout.flush();
-
-    let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
-    let mut x = cols as i32 - 1;
+    let mut x = tui.cols as i32 - 1;
     let mut env = SmokeEnv {
         smokes: Vec::new(),
         smoke_count: 0,
     };
 
-    loop {
-        // Render step
-        let keep_going = if state.logo {
-            add_sl(&mut stdout, &mut env, &state, x, cols, rows)?
-        } else if state.c51 {
-            add_c51(&mut stdout, &mut env, &state, x, cols, rows)?
-        } else {
-            add_d51(&mut stdout, &mut env, &state, x, cols, rows)?
-        };
-
-        if !keep_going {
-            break;
-        }
-        let _ = stdout.flush();
-
+    while tui.render_train(&mut env, &state, x)? {
         // Check for interrupt signal (Ctrl+C) early exit
-        if poll(Duration::from_millis(0)).unwrap()
-            && let Event::Key(event) = read().unwrap()
+        if poll(Duration::from_millis(0))?
+            && let Event::Key(event) = read()?
             && event.code == KeyCode::Char('c')
             && event.modifiers.contains(KeyModifiers::CONTROL)
         {
