@@ -214,7 +214,7 @@ const DX: [i32; SMOKEPTNS] = [-2, -1, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3];
 struct Smoke {
     y: i32,
     x: i32,
-    ptrn: usize,
+    frame: usize,
     kind: usize,
 }
 
@@ -227,19 +227,19 @@ impl SmokeEnv {
     fn add_smoke(&mut self, tui: &mut Tui, y: i32, x: i32) -> Result<()> {
         if x % 4 == 0 {
             for smoke in &mut self.smokes {
-                tui.my_mvaddstr(smoke.y, smoke.x, ERASER[smoke.ptrn])?;
-                smoke.y -= DY[smoke.ptrn];
-                smoke.x += DX[smoke.ptrn];
-                if smoke.ptrn < SMOKEPTNS - 1 {
-                    smoke.ptrn += 1;
+                tui.my_mvaddstr(smoke.y, smoke.x, ERASER[smoke.frame])?;
+                smoke.y -= DY[smoke.frame];
+                smoke.x += DX[smoke.frame];
+                if smoke.frame < SMOKEPTNS - 1 {
+                    smoke.frame += 1;
                 }
-                tui.my_mvaddstr(smoke.y, smoke.x, SMOKE[smoke.kind][smoke.ptrn])?;
+                tui.my_mvaddstr(smoke.y, smoke.x, SMOKE[smoke.kind][smoke.frame])?;
             }
             tui.my_mvaddstr(y, x, SMOKE[self.smoke_count % 2][0])?;
             self.smokes.push(Smoke {
                 y,
                 x,
-                ptrn: 0,
+                frame: 0,
                 kind: self.smoke_count % 2,
             });
             self.smoke_count += 1;
@@ -251,21 +251,6 @@ impl SmokeEnv {
 // --- Train Logic ---
 // Make sure terminal raw mode is disabled before exit
 pub struct TerminalGuard;
-
-impl TerminalGuard {
-    pub fn new() -> Result<Self> {
-        crossterm::execute!(
-            std::io::stdout(),
-            crossterm::style::ResetColor,
-            crossterm::terminal::EnterAlternateScreen,
-            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
-            crossterm::cursor::Hide,
-            crossterm::cursor::MoveTo(0, 0)
-        )?;
-        crossterm::terminal::enable_raw_mode()?;
-        Ok(Self)
-    }
-}
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
@@ -293,16 +278,29 @@ enum Train {
 
 struct Tui {
     _guard: TerminalGuard,
+    stdout: std::io::Stdout,
     rows: u16,
     cols: u16,
 }
 
 impl Tui {
     fn new() -> Result<Self> {
+        let mut stdout=std::io::stdout();
+        crossterm::execute!(
+            stdout,
+            crossterm::style::ResetColor,
+            crossterm::terminal::EnterAlternateScreen,
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+            crossterm::cursor::Hide,
+            crossterm::cursor::MoveTo(0, 0)
+        )?;
+        crossterm::terminal::enable_raw_mode()?;
+
         let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
-        std::io::stdout().flush()?;
+        stdout.flush()?;
         Ok(Tui {
-            _guard: TerminalGuard::new()?,
+            _guard: TerminalGuard,
+            stdout,
             rows,
             cols,
         })
@@ -314,7 +312,7 @@ impl Tui {
             for (i, c) in s.chars().enumerate() {
                 let x = x + i as i32;
                 if (0..cols).contains(&x) {
-                    queue!(std::io::stdout(), MoveTo(x as u16, y as u16), Print(c))?;
+                    queue!(self.stdout, MoveTo(x as u16, y as u16), Print(c))?;
                 }
             }
         }
@@ -337,7 +335,7 @@ impl Tui {
             Train::C51 => self.render_c51(env, state, x)?,
             Train::D51 => self.render_d51(env, state, x)?,
         };
-        std::io::stdout().flush()?;
+        self.stdout.flush()?;
         Ok(visible)
     }
 
