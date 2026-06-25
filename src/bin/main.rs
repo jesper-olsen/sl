@@ -96,43 +96,44 @@ const LOGOFUNNEL: i32 = 4;
 const LOGOLENGTH: i32 = 84;
 const LOGOPATTERNS: usize = 6;
 
-const LOGO1: &str = r#"     ++      +------ "#;
-const LOGO2: &str = r#"     ||      |+-+ |  "#;
-const LOGO3: &str = r#"   /---------|| | |  "#;
-const LOGO4: &str = r#"  + ========  +-+ |  "#;
+const LOGO_BODY: [&str; 4] = [
+    r#"     ++      +------ "#,
+    r#"     ||      |+-+ |  "#,
+    r#"   /---------|| | |  "#,
+    r#"  + ========  +-+ |  "#,
+];
 
-const LWHL11: &str = r#" _|--O========O~\-+  "#;
-const LWHL12: &str = r#"//// \_/      \_/    "#;
+// The animated wheels (6 frames, 2 lines each)
+const LOGO_WHEELS: [[&str; 2]; LOGOPATTERNS] = [
+    [r#" _|--O========O~\-+  "#, r#"//// \_/      \_/    "#],
+    [r#" _|--/O========O\-+  "#, r#"//// \_/      \_/    "#],
+    [r#" _|--/~O========O-+  "#, r#"//// \_/      \_/    "#],
+    [r#" _|--/~\------/~\-+  "#, r#"//// \_O========O    "#],
+    [r#" _|--/~\------/~\-+  "#, r#"//// \O========O/    "#],
+    [r#" _|--/~\------/~\-+  "#, r#"//// O========O_/    "#],
+];
 
-const LWHL21: &str = r#" _|--/O========O\-+  "#;
-const LWHL22: &str = r#"//// \_/      \_/    "#;
+const LOGO_ERASER: &str = r#"                     "#;
 
-const LWHL31: &str = r#" _|--/~O========O-+  "#;
-const LWHL32: &str = r#"//// \_/      \_/    "#;
+const LOGO_COAL: [&str; 7] = [
+    r#"____                 "#,
+    r#"|   \@@@@@@@@@@@     "#,
+    r#"|    \@@@@@@@@@@@@@_ "#,
+    r#"|                  | "#,
+    r#"|__________________| "#,
+    r#"   (O)       (O)     "#,
+    r#"                     "#,
+];
 
-const LWHL41: &str = r#" _|--/~\------/~\-+  "#;
-const LWHL42: &str = r#"//// \_O========O    "#;
-
-const LWHL51: &str = r#" _|--/~\------/~\-+  "#;
-const LWHL52: &str = r#"//// \O========O/    "#;
-
-const LWHL61: &str = r#" _|--/~\------/~\-+  "#;
-const LWHL62: &str = r#"//// O========O_/    "#;
-
-const LCOAL1: &str = r#"____                 "#;
-const LCOAL2: &str = r#"|   \@@@@@@@@@@@     "#;
-const LCOAL3: &str = r#"|    \@@@@@@@@@@@@@_ "#;
-const LCOAL4: &str = r#"|                  | "#;
-const LCOAL5: &str = r#"|__________________| "#;
-const LCOAL6: &str = r#"   (O)       (O)     "#;
-
-const LCAR1: &str = r#"____________________ "#;
-const LCAR2: &str = r#"|  ___ ___ ___ ___ | "#;
-const LCAR3: &str = r#"|  |_| |_| |_| |_| | "#;
-const LCAR4: &str = r#"|__________________| "#;
-const LCAR5: &str = r#"|__________________| "#;
-const LCAR6: &str = r#"   (O)        (O)    "#;
-const DELLN: &str = r#"                     "#;
+const LOGO_CAR: [&str; 7] = [
+    r#"____________________ "#,
+    r#"|  ___ ___ ___ ___ | "#,
+    r#"|  |_| |_| |_| |_| | "#,
+    r#"|__________________| "#,
+    r#"|__________________| "#,
+    r#"   (O)        (O)    "#,
+    r#"                     "#,
+];
 
 // --- C51 Constants ---
 const C51HEIGHT: i32 = 11;
@@ -292,7 +293,6 @@ enum Train {
 
 struct Tui {
     _guard: TerminalGuard,
-    stdout: std::io::Stdout,
     rows: u16,
     cols: u16,
 }
@@ -300,11 +300,9 @@ struct Tui {
 impl Tui {
     fn new() -> Result<Self> {
         let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
-        let mut stdout = std::io::stdout();
-        stdout.flush()?;
+        std::io::stdout().flush()?;
         Ok(Tui {
             _guard: TerminalGuard::new()?,
-            stdout,
             rows,
             cols,
         })
@@ -316,7 +314,7 @@ impl Tui {
             for (i, c) in s.chars().enumerate() {
                 let x = x + i as i32;
                 if (0..cols).contains(&x) {
-                    queue!(self.stdout, MoveTo(x as u16, y as u16), Print(c))?;
+                    queue!(std::io::stdout(), MoveTo(x as u16, y as u16), Print(c))?;
                 }
             }
         }
@@ -332,42 +330,29 @@ impl Tui {
         Ok(())
     }
 
-    // return true while train is still on screen
+    // return true while the train is visible on screen
     fn render_train(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
-        let done = match state.train {
+        let visible = match state.train {
             Train::Logo => self.render_sl(env, state, x)?,
             Train::C51 => self.render_c51(env, state, x)?,
             Train::D51 => self.render_d51(env, state, x)?,
         };
-        self.stdout.flush()?;
-        Ok(!done)
+        std::io::stdout().flush()?;
+        Ok(visible)
     }
 
     fn render_sl(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
         if x < -LOGOLENGTH {
-            return Ok(true);
+            return Ok(false);
         }
 
-        let (rows, cols) = (self.rows, self.cols);
-
-        let sl: [[&str; 7]; LOGOPATTERNS] = [
-            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL11, LWHL12, DELLN],
-            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL21, LWHL22, DELLN],
-            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL31, LWHL32, DELLN],
-            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL41, LWHL42, DELLN],
-            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL51, LWHL52, DELLN],
-            [LOGO1, LOGO2, LOGO3, LOGO4, LWHL61, LWHL62, DELLN],
-        ];
-        let coal = [LCOAL1, LCOAL2, LCOAL3, LCOAL4, LCOAL5, LCOAL6, DELLN];
-        let car = [LCAR1, LCAR2, LCAR3, LCAR4, LCAR5, LCAR6, DELLN];
-
-        let mut y = (rows as i32) / 2 - 3;
+        let mut y = (self.rows as i32) / 2 - 3;
         let mut py1 = 0;
         let mut py2 = 0;
         let mut py3 = 0;
 
         if state.fly {
-            y = (x / 6) + (rows as i32) - (cols as i32 / 6) - LOGOHEIGHT;
+            y = (x / 6) + (self.rows as i32) - (self.cols as i32 / 6) - LOGOHEIGHT;
             py1 = 2;
             py2 = 4;
             py3 = 6;
@@ -375,12 +360,22 @@ impl Tui {
 
         let ptn = ((LOGOLENGTH + x) / 3 % LOGOPATTERNS as i32) as usize;
 
+        for (i, line) in LOGO_BODY.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32, x, line)?;
+        }
+        // Render the animated wheels below the body
+        let height = LOGO_BODY.len() as i32;
+        for (i, line) in LOGO_WHEELS[ptn].iter().enumerate() {
+            self.my_mvaddstr(y + height + i as i32, x, line)?;
+        }
+        let height = height + LOGO_WHEELS[0].len() as i32;
+        self.my_mvaddstr(y + height, x, LOGO_ERASER)?;
+
         for i in 0..=LOGOHEIGHT {
             let i_usize = i as usize;
-            self.my_mvaddstr(y + i, x, sl[ptn][i_usize])?;
-            self.my_mvaddstr(y + i + py1, x + 21, coal[i_usize])?;
-            self.my_mvaddstr(y + i + py2, x + 42, car[i_usize])?;
-            self.my_mvaddstr(y + i + py3, x + 63, car[i_usize])?;
+            self.my_mvaddstr(y + i + py1, x + 21, LOGO_COAL[i_usize])?;
+            self.my_mvaddstr(y + i + py2, x + 42, LOGO_CAR[i_usize])?;
+            self.my_mvaddstr(y + i + py3, x + 63, LOGO_CAR[i_usize])?;
         }
 
         if state.accident {
@@ -391,12 +386,12 @@ impl Tui {
             self.add_man(y + 1 + py3, x + 74)?;
         }
         env.add_smoke(self, y - 1, x + LOGOFUNNEL)?;
-        Ok(false)
+        Ok(true)
     }
 
     fn render_d51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
         if x < -D51LENGTH {
-            return Ok(true);
+            return Ok(false);
         }
         let mut y = (self.rows as i32) / 2 - 5;
         let mut dy = 0;
@@ -431,12 +426,12 @@ impl Tui {
             self.add_man(y + 2, x + 47)?;
         }
         env.add_smoke(self, y - 1, x + D51FUNNEL)?;
-        Ok(false)
+        Ok(true)
     }
 
     fn render_c51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
         if x < -C51LENGTH {
-            return Ok(true);
+            return Ok(false);
         }
         let mut y = (self.rows as i32) / 2 - 5;
         let mut dy = 0;
@@ -471,7 +466,7 @@ impl Tui {
             self.add_man(y + 3, x + 49)?;
         }
         env.add_smoke(self, y - 1, x + C51FUNNEL)?;
-        Ok(false)
+        Ok(true)
     }
 }
 
