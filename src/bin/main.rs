@@ -88,6 +88,8 @@ const C51_COAL: [&str; 12] = [
     r#"                              "#,
 ];
 
+const MAN_FRAMES: [[&str; 2]; 2] = [["", "(O)"], ["Help!", "\\O/"]];
+
 // --- LOGO Constants ---
 const LOGOHEIGHT: i32 = 6;
 const LOGOFUNNEL: i32 = 4;
@@ -138,44 +140,56 @@ const C51FUNNEL: i32 = 7;
 const C51LENGTH: i32 = 87;
 const C51PATTERNS: usize = 6;
 
-const C51DEL: &str = r#"                                                       "#;
-const C51STR1: &str = r#"        ___                                            "#;
-const C51STR2: &str = r#"       _|_|_  _     __       __             ___________"#;
-const C51STR3: &str = r#"    D__/   \_(_)___|  |__H__|  |_____I_Ii_()|_________|"#;
-const C51STR4: &str = r#"     | `---'   |:: `--'  H  `--'         |  |___ ___|  "#;
-const C51STR5: &str = r#"    +|~~~~~~~~++::~~~~~~~H~~+=====+~~~~~~|~~||_| |_||  "#;
-const C51STR6: &str = r#"    ||        | ::       H  +=====+      |  |::  ...|  "#;
-const C51STR7: &str = r#"|    | _______|_::-----------------[][]-----|       |  "#;
+const C51_BODY: [&str; 7] = [
+    r#"        ___                                            "#,
+    r#"       _|_|_  _     __       __             ___________"#,
+    r#"    D__/   \_(_)___|  |__H__|  |_____I_Ii_()|_________|"#,
+    r#"     | `---'   |:: `--'  H  `--'         |  |___ ___|  "#,
+    r#"    +|~~~~~~~~++::~~~~~~~H~~+=====+~~~~~~|~~||_| |_||  "#,
+    r#"    ||        | ::       H  +=====+      |  |::  ...|  "#,
+    r#"|    | _______|_::-----------------[][]-----|       |  "#,
+];
 
-const C51WH61: &str = r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#;
-const C51WH62: &str = r#"------'|oOo|==[]=-     ||      ||      |  ||=======_|__"#;
-const C51WH63: &str = r#"/~\____|___|/~\_|   O=======O=======O  |__|+-/~\_|     "#;
-const C51WH64: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
+const C51_WHEELS: [[&str; 4]; C51PATTERNS] = [
+    [
+        r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#,
+        r#"------'|oOo|==[]=-     ||      ||      |  ||=======_|__"#,
+        r#"/~\____|___|/~\_|   O=======O=======O  |__|+-/~\_|     "#,
+        r#"\_/         \_/  \____/  \____/  \____/      \_/       "#,
+    ],
+    [
+        r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#,
+        r#"------'|oOo|===[]=-    ||      ||      |  ||=======_|__"#,
+        r#"/~\____|___|/~\_|    O=======O=======O |__|+-/~\_|     "#,
+        r#"\_/         \_/  \____/  \____/  \____/      \_/       "#,
+    ],
+    [
+        r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#,
+        r#"------'|oOo|===[]=- O=======O=======O  |  ||=======_|__"#,
+        r#"/~\____|___|/~\_|      ||      ||      |__|+-/~\_|     "#,
+        r#"\_/         \_/  \____/  \____/  \____/      \_/       "#,
+    ],
+    [
+        r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#,
+        r#"------'|oOo|==[]=- O=======O=======O   |  ||=======_|__"#,
+        r#"/~\____|___|/~\_|      ||      ||      |__|+-/~\_|     "#,
+        r#"\_/         \_/  \____/  \____/  \____/      \_/       "#,
+    ],
+    [
+        r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#,
+        r#"------'|oOo|=[]=- O=======O=======O    |  ||=======_|__"#,
+        r#"/~\____|___|/~\_|      ||      ||      |__|+-/~\_|     "#,
+        r#"\_/         \_/  \____/  \____/  \____/      \_/       "#,
+    ],
+    [
+        r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#,
+        r#"------'|oOo|=[]=-      ||      ||      |  ||=======_|__"#,
+        r#"/~\____|___|/~\_|  O=======O=======O   |__|+-/~\_|     "#,
+        r#"\_/         \_/  \____/  \____/  \____/      \_/       "#,
+    ],
+];
 
-const C51WH51: &str = r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#;
-const C51WH52: &str = r#"------'|oOo|===[]=-    ||      ||      |  ||=======_|__"#;
-const C51WH53: &str = r#"/~\____|___|/~\_|    O=======O=======O |__|+-/~\_|     "#;
-const C51WH54: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
-
-const C51WH41: &str = r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#;
-const C51WH42: &str = r#"------'|oOo|===[]=- O=======O=======O  |  ||=======_|__"#;
-const C51WH43: &str = r#"/~\____|___|/~\_|      ||      ||      |__|+-/~\_|     "#;
-const C51WH44: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
-
-const C51WH31: &str = r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#;
-const C51WH32: &str = r#"------'|oOo|==[]=- O=======O=======O   |  ||=======_|__"#;
-const C51WH33: &str = r#"/~\____|___|/~\_|      ||      ||      |__|+-/~\_|     "#;
-const C51WH34: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
-
-const C51WH21: &str = r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#;
-const C51WH22: &str = r#"------'|oOo|=[]=- O=======O=======O    |  ||=======_|__"#;
-const C51WH23: &str = r#"/~\____|___|/~\_|      ||      ||      |__|+-/~\_|     "#;
-const C51WH24: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
-
-const C51WH11: &str = r#"| /~~ ||   |-----/~~~~\  /[I_____I][][] --|||_______|__"#;
-const C51WH12: &str = r#"------'|oOo|=[]=-      ||      ||      |  ||=======_|__"#;
-const C51WH13: &str = r#"/~\____|___|/~\_|  O=======O=======O   |__|+-/~\_|     "#;
-const C51WH14: &str = r#"\_/         \_/  \____/  \____/  \____/      \_/       "#;
+const WHEELS_ERASER: &str = "                                                       ";
 
 // --- Smoke Logic ---
 const SMOKEPTNS: usize = 16;
@@ -310,10 +324,10 @@ impl Tui {
     }
 
     fn add_man(&mut self, y: i32, x: i32) -> Result<()> {
-        let man = [["", "(O)"], ["Help!", "\\O/"]];
         let idx = ((LOGOLENGTH + x) / 12 % 2) as usize;
-        for i in 0..2 {
-            self.my_mvaddstr(y + i, x, man[idx][i as usize])?;
+        let frame = MAN_FRAMES[idx];
+        for (i, s) in frame.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32, x, s)?;
         }
         Ok(())
     }
@@ -398,10 +412,13 @@ impl Tui {
             self.my_mvaddstr(y + i as i32, x, line)?;
         }
         // Render the animated wheels below the body
-        let body_height = D51_BODY.len() as i32;
+        let height = D51_BODY.len() as i32;
         for (i, line) in D51_WHEELS[ptn].iter().enumerate() {
-            self.my_mvaddstr(y + body_height + i as i32, x, line)?;
+            self.my_mvaddstr(y + height + i as i32, x, line)?;
         }
+        let height = height + D51_WHEELS[0].len() as i32;
+        self.my_mvaddstr(y + height, x, WHEELS_ERASER)?;
+
         // Render the attached coal car
         let car_x_offset = 53;
         let car_y_offset = 0;
@@ -421,49 +438,32 @@ impl Tui {
         if x < -C51LENGTH {
             return Ok(true);
         }
-        let (rows, cols) = (self.rows, self.cols);
-
-        let c51: [[&str; 12]; C51PATTERNS] = [
-            [
-                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH11, C51WH12,
-                C51WH13, C51WH14, C51DEL,
-            ],
-            [
-                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH21, C51WH22,
-                C51WH23, C51WH24, C51DEL,
-            ],
-            [
-                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH31, C51WH32,
-                C51WH33, C51WH34, C51DEL,
-            ],
-            [
-                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH41, C51WH42,
-                C51WH43, C51WH44, C51DEL,
-            ],
-            [
-                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH51, C51WH52,
-                C51WH53, C51WH54, C51DEL,
-            ],
-            [
-                C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH61, C51WH62,
-                C51WH63, C51WH64, C51DEL,
-            ],
-        ];
-
-        let mut y = (rows as i32) / 2 - 5;
+        let mut y = (self.rows as i32) / 2 - 5;
         let mut dy = 0;
 
         if state.fly {
-            y = (x / 7) + (rows as i32) - (cols as i32 / 7) - C51HEIGHT;
+            y = (x / 7) + (self.rows as i32) - (self.cols as i32 / 7) - C51HEIGHT;
             dy = 1;
         }
 
         let ptn = ((C51LENGTH + x) as usize) % C51PATTERNS;
 
-        for i in 0..=C51HEIGHT {
-            let i_usize = i as usize;
-            self.my_mvaddstr(y + i, x, c51[ptn][i_usize])?;
-            self.my_mvaddstr(y + i + dy, x + 55, C51_COAL[i_usize])?;
+        for (i, line) in C51_BODY.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32, x, line)?;
+        }
+        // Render the animated wheels below the body
+        let height = C51_BODY.len() as i32;
+        for (i, line) in C51_WHEELS[ptn].iter().enumerate() {
+            self.my_mvaddstr(y + height + i as i32, x, line)?;
+        }
+        let height = height + C51_WHEELS[0].len() as i32;
+        self.my_mvaddstr(y + height, x, WHEELS_ERASER)?;
+
+        // Render the attached coal car
+        let car_x_offset = 55;
+        let car_y_offset = 0;
+        for (i, line) in C51_COAL.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32 + dy + car_y_offset, x + car_x_offset, line)?;
         }
 
         if state.accident {
