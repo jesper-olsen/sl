@@ -360,23 +360,17 @@ impl Tui {
 
         let ptn = ((LOGOLENGTH + x) / 3 % LOGOPATTERNS as i32) as usize;
 
-        for (i, line) in LOGO_BODY.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32, x, line)?;
-        }
-        // Render the animated wheels below the body
+        // Render train body + animated wheels below the body
+        self.draw_lines(y, x, &LOGO_BODY)?;
         let height = LOGO_BODY.len() as i32;
-        for (i, line) in LOGO_WHEELS[ptn].iter().enumerate() {
-            self.my_mvaddstr(y + height + i as i32, x, line)?;
-        }
+        self.draw_lines(y+height, x, &LOGO_WHEELS[ptn])?;
         let height = height + LOGO_WHEELS[0].len() as i32;
         self.my_mvaddstr(y + height, x, LOGO_ERASER)?;
 
-        for i in 0..=LOGOHEIGHT {
-            let i_usize = i as usize;
-            self.my_mvaddstr(y + i + py1, x + 21, LOGO_COAL[i_usize])?;
-            self.my_mvaddstr(y + i + py2, x + 42, LOGO_CAR[i_usize])?;
-            self.my_mvaddstr(y + i + py3, x + 63, LOGO_CAR[i_usize])?;
-        }
+        // Render the attached cars
+        self.draw_lines(y+py1, x+21, &LOGO_COAL)?;
+        self.draw_lines(y+py2, x+42, &LOGO_CAR)?;
+        self.draw_lines(y+py3, x+63, &LOGO_CAR)?;
 
         if state.accident {
             self.add_man(y + 1, x + 14)?;
@@ -403,23 +397,16 @@ impl Tui {
 
         let ptn = ((D51LENGTH + x) as usize) % D51PATTERNS;
 
-        for (i, line) in D51_BODY.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32, x, line)?;
-        }
-        // Render the animated wheels below the body
+        // Render train body + animated wheels below the body
+        self.draw_lines(y, x, &D51_BODY)?;
         let height = D51_BODY.len() as i32;
-        for (i, line) in D51_WHEELS[ptn].iter().enumerate() {
-            self.my_mvaddstr(y + height + i as i32, x, line)?;
-        }
+        self.draw_lines(y+height, x, &D51_WHEELS[ptn])?;
         let height = height + D51_WHEELS[0].len() as i32;
         self.my_mvaddstr(y + height, x, WHEELS_ERASER)?;
 
         // Render the attached coal car
         let car_x_offset = 53;
-        let car_y_offset = 0;
-        for (i, line) in D51_COAL.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32 + dy + car_y_offset, x + car_x_offset, line)?;
-        }
+        self.draw_lines(y+dy, x+car_x_offset, &D51_COAL)?;
 
         if state.accident {
             self.add_man(y + 2, x + 43)?;
@@ -427,6 +414,18 @@ impl Tui {
         }
         env.add_smoke(self, y - 1, x + D51FUNNEL)?;
         Ok(true)
+    }
+
+    fn draw_lines(
+        &mut self,
+        y: i32,
+        x: i32,
+        lines: &[&str],
+    ) -> Result<()> {
+        for (i, line) in lines.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32, x, line)?;
+        }
+        Ok(())
     }
 
     fn render_c51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
@@ -443,23 +442,16 @@ impl Tui {
 
         let ptn = ((C51LENGTH + x) as usize) % C51PATTERNS;
 
-        for (i, line) in C51_BODY.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32, x, line)?;
-        }
-        // Render the animated wheels below the body
+        // Render train body + animated wheels below the body
+        self.draw_lines(y, x, &C51_BODY)?;
         let height = C51_BODY.len() as i32;
-        for (i, line) in C51_WHEELS[ptn].iter().enumerate() {
-            self.my_mvaddstr(y + height + i as i32, x, line)?;
-        }
+        self.draw_lines(y+height, x, &C51_WHEELS[ptn])?;
         let height = height + C51_WHEELS[0].len() as i32;
         self.my_mvaddstr(y + height, x, WHEELS_ERASER)?;
 
         // Render the attached coal car
         let car_x_offset = 55;
-        let car_y_offset = 0;
-        for (i, line) in C51_COAL.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32 + dy + car_y_offset, x + car_x_offset, line)?;
-        }
+        self.draw_lines(y+dy, x+car_x_offset, &C51_COAL)?;
 
         if state.accident {
             self.add_man(y + 3, x + 45)?;
