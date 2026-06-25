@@ -13,51 +13,80 @@ const D51FUNNEL: i32 = 7;
 const D51LENGTH: i32 = 83;
 const D51PATTERNS: usize = 6;
 
-const D51STR1: &str = r#"      ====        ________                ___________ "#;
-const D51STR2: &str = r#"  _D _|  |_______/        \__I_I_____===__|_________| "#;
-const D51STR3: &str = r#"   |(_)---  |   H\________/ |   |        =|___ ___|   "#;
-const D51STR4: &str = r#"   /     |  |   H  |  |     |   |         ||_| |_||   "#;
-const D51STR5: &str = r#"  |      |  |   H  |__--------------------| [___] |   "#;
-const D51STR6: &str = r#"  | ________|___H__/__|_____/[][]~\_______|       |   "#;
-const D51STR7: &str = r#"  |/ |   |-----------I_____I [][] []  D   |=======|__ "#;
+// The static upper body of the D51 train
+const D51_BODY: [&str; 7] = [
+    r#"      ====        ________                ___________ "#,
+    r#"  _D _|  |_______/        \__I_I_____===__|_________| "#,
+    r#"   |(_)---  |   H\________/ |   |        =|___ ___|   "#,
+    r#"   /     |  |   H  |  |     |   |         ||_| |_||   "#,
+    r#"  |      |  |   H  |__--------------------| [___] |   "#,
+    r#"  | ________|___H__/__|_____/[][]~\_______|       |   "#,
+    r#"  |/ |   |-----------I_____I [][] []  D   |=======|__ "#,
+];
 
-const D51WHL11: &str = r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#;
-const D51WHL12: &str = r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#;
-const D51WHL13: &str = r#"  \_/      \O=====O=====O=====O_/      \_/            "#;
+// The animated wheels (6 frames, 3 lines each)
+const D51_WHEELS: [[&str; 3]; D51PATTERNS] = [
+    [
+        r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#,
+        r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#,
+        r#"  \_/      \O=====O=====O=====O_/      \_/            "#,
+    ],
+    [
+        r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#,
+        r#" |/-=|___|=O=====O=====O=====O   |_____/~\___/        "#,
+        r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#,
+    ],
+    [
+        r#"__/ =| o |=-O=====O=====O=====O \ ____Y___________|__ "#,
+        r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#,
+        r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#,
+    ],
+    [
+        r#"__/ =| o |=-~O=====O=====O=====O\ ____Y___________|__ "#,
+        r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#,
+        r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#,
+    ],
+    [
+        r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#,
+        r#" |/-=|___|=   O=====O=====O=====O|_____/~\___/        "#,
+        r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#,
+    ],
+    [
+        r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#,
+        r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#,
+        r#"  \_/      \_O=====O=====O=====O/      \_/            "#,
+    ],
+];
 
-const D51WHL21: &str = r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#;
-const D51WHL22: &str = r#" |/-=|___|=O=====O=====O=====O   |_____/~\___/        "#;
-const D51WHL23: &str = r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#;
+// The coal car
+const D51_COAL: [&str; 11] = [
+    r#"                              "#,
+    r#"                              "#,
+    r#"    _________________         "#,
+    r#"   _|                \_____A  "#,
+    r#" =|                        |  "#,
+    r#" -|                        |  "#,
+    r#"__|________________________|_ "#,
+    r#"|__________________________|_ "#,
+    r#"   |_D__D__D_|  |_D__D__D_|   "#,
+    r#"    \_/   \_/    \_/   \_/    "#,
+    r#"                              "#,
+];
 
-const D51WHL31: &str = r#"__/ =| o |=-O=====O=====O=====O \ ____Y___________|__ "#;
-const D51WHL32: &str = r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#;
-const D51WHL33: &str = r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#;
-
-const D51WHL41: &str = r#"__/ =| o |=-~O=====O=====O=====O\ ____Y___________|__ "#;
-const D51WHL42: &str = r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#;
-const D51WHL43: &str = r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#;
-
-const D51WHL51: &str = r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#;
-const D51WHL52: &str = r#" |/-=|___|=   O=====O=====O=====O|_____/~\___/        "#;
-const D51WHL53: &str = r#"  \_/      \__/  \__/  \__/  \__/      \_/            "#;
-
-const D51WHL61: &str = r#"__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__ "#;
-const D51WHL62: &str = r#" |/-=|___|=    ||    ||    ||    |_____/~\___/        "#;
-const D51WHL63: &str = r#"  \_/      \_O=====O=====O=====O/      \_/            "#;
-
-const D51DEL: &str = r#"                                                      "#;
-
-const COAL01: &str = r#"                              "#;
-const COAL02: &str = r#"                              "#;
-const COAL03: &str = r#"   _________________          "#;
-const COAL04: &str = r#"  _|                 \_____A  "#;
-const COAL05: &str = r#" =|                        |  "#;
-const COAL06: &str = r#" -|                        |  "#;
-const COAL07: &str = r#"__|________________________|_ "#;
-const COAL08: &str = r#"|__________________________|_ "#;
-const COAL09: &str = r#"   |_D__D__D_|  |_D__D__D_|   "#;
-const COAL10: &str = r#"    \_/   \_/    \_/   \_/    "#;
-const COALDEL: &str = r#"                              "#;
+const C51_COAL: [&str; 12] = [
+    r#"                              "#,
+    r#"                              "#,
+    r#"                              "#,
+    r#"    _________________         "#,
+    r#"   _|                \_____A  "#,
+    r#" =|                        |  "#,
+    r#" -|                        |  "#,
+    r#"__|________________________|_ "#,
+    r#"|__________________________|_ "#,
+    r#"   |_D__D__D_|  |_D__D__D_|   "#,
+    r#"    \_/   \_/    \_/   \_/    "#,
+    r#"                              "#,
+];
 
 // --- LOGO Constants ---
 const LOGOHEIGHT: i32 = 6;
@@ -355,52 +384,29 @@ impl Tui {
         if x < -D51LENGTH {
             return Ok(true);
         }
-        let (rows, cols) = (self.rows, self.cols);
-
-        let d51: [[&str; 11]; D51PATTERNS] = [
-            [
-                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL11, D51WHL12,
-                D51WHL13, D51DEL,
-            ],
-            [
-                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL21, D51WHL22,
-                D51WHL23, D51DEL,
-            ],
-            [
-                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL31, D51WHL32,
-                D51WHL33, D51DEL,
-            ],
-            [
-                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL41, D51WHL42,
-                D51WHL43, D51DEL,
-            ],
-            [
-                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL51, D51WHL52,
-                D51WHL53, D51DEL,
-            ],
-            [
-                D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL61, D51WHL62,
-                D51WHL63, D51DEL,
-            ],
-        ];
-        let coal = [
-            COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09, COAL10, COALDEL,
-        ];
-
-        let mut y = (rows as i32) / 2 - 5;
+        let mut y = (self.rows as i32) / 2 - 5;
         let mut dy = 0;
 
         if state.fly {
-            y = (x / 7) + (rows as i32) - (cols as i32 / 7) - D51HEIGHT;
+            y = (x / 7) + (self.rows as i32) - (self.cols as i32 / 7) - D51HEIGHT;
             dy = 1;
         }
 
         let ptn = ((D51LENGTH + x) as usize) % D51PATTERNS;
 
-        for i in 0..=D51HEIGHT {
-            let i_usize = i as usize;
-            self.my_mvaddstr(y + i, x, d51[ptn][i_usize])?;
-            self.my_mvaddstr(y + i + dy, x + 53, coal[i_usize])?;
+        for (i, line) in D51_BODY.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32, x, line)?;
+        }
+        // Render the animated wheels below the body
+        let body_height = D51_BODY.len() as i32;
+        for (i, line) in D51_WHEELS[ptn].iter().enumerate() {
+            self.my_mvaddstr(y + body_height + i as i32, x, line)?;
+        }
+        // Render the attached coal car
+        let car_x_offset = 53;
+        let car_y_offset = 0;
+        for (i, line) in D51_COAL.iter().enumerate() {
+            self.my_mvaddstr(y + i as i32 + dy + car_y_offset, x + car_x_offset, line)?;
         }
 
         if state.accident {
@@ -443,10 +449,6 @@ impl Tui {
                 C51WH63, C51WH64, C51DEL,
             ],
         ];
-        let coal = [
-            COALDEL, COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09,
-            COAL10, COALDEL,
-        ];
 
         let mut y = (rows as i32) / 2 - 5;
         let mut dy = 0;
@@ -461,7 +463,7 @@ impl Tui {
         for i in 0..=C51HEIGHT {
             let i_usize = i as usize;
             self.my_mvaddstr(y + i, x, c51[ptn][i_usize])?;
-            self.my_mvaddstr(y + i + dy, x + 55, coal[i_usize])?;
+            self.my_mvaddstr(y + i + dy, x + 55, C51_COAL[i_usize])?;
         }
 
         if state.accident {
