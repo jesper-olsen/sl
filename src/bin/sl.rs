@@ -229,41 +229,66 @@ const ERASER: [&str; SMOKEPTNS] = [
     "     ", "      ", "      ", "     ", "    ", "    ", "   ", "   ", "  ", "  ", " ", " ", " ",
     " ", " ", " ",
 ];
+// trajectory of smoke puffs
 const DY: [i32; SMOKEPTNS] = [2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const DX: [i32; SMOKEPTNS] = [-2, -1, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3];
 
-struct Smoke {
+struct SmokePuff {
     y: i32,
     x: i32,
     frame: usize,
     kind: usize,
 }
 
-struct SmokeEnv {
-    smokes: Vec<Smoke>,
-    smoke_count: usize,
+struct SmokePlume {
+    puffs: Vec<SmokePuff>,
 }
 
-impl SmokeEnv {
+impl SmokePlume {
+    fn new() -> Self {
+        SmokePlume { puffs: Vec::new() }
+    }
+
     fn add_smoke(&mut self, tui: &mut Tui, y: i32, x: i32) -> Result<()> {
         if x % 4 == 0 {
-            for smoke in &mut self.smokes {
-                tui.draw_text(smoke.y, smoke.x, ERASER[smoke.frame])?;
-                smoke.y -= DY[smoke.frame];
-                smoke.x += DX[smoke.frame];
-                if smoke.frame < SMOKEPTNS - 1 {
-                    smoke.frame += 1;
+            let mut i = 0;
+            while i < self.puffs.len() {
+                // Erase the old position
+                tui.draw_text(
+                    self.puffs[i].y,
+                    self.puffs[i].x,
+                    ERASER[self.puffs[i].frame],
+                )?;
+
+                // Update positions - fixed trajectory
+                self.puffs[i].y -= DY[self.puffs[i].frame];
+                self.puffs[i].x += DX[self.puffs[i].frame];
+
+                if self.puffs[i].frame < SMOKEPTNS - 1 {
+                    self.puffs[i].frame += 1;
                 }
-                tui.draw_text(smoke.y, smoke.x, SMOKE[smoke.kind][smoke.frame])?;
+
+                // check if still on screen - leaves right side of the screen
+                if self.puffs[i].x >= tui.cols.into() {
+                    self.puffs.swap_remove(i); // O(1) - swap last element in
+                } else {
+                    tui.draw_text(
+                        self.puffs[i].y,
+                        self.puffs[i].x,
+                        SMOKE[self.puffs[i].kind][self.puffs[i].frame],
+                    )?;
+                    i += 1;
+                }
             }
-            tui.draw_text(y, x, SMOKE[self.smoke_count % 2][0])?;
-            self.smokes.push(Smoke {
+
+            // Add a brand new puff at the locomotive's funnel position
+            tui.draw_text(y, x, SMOKE[self.puffs.len() % 2][0])?;
+            self.puffs.push(SmokePuff {
                 y,
                 x,
                 frame: 0,
-                kind: self.smoke_count % 2,
+                kind: self.puffs.len() % 2,
             });
-            self.smoke_count += 1;
         }
         Ok(())
     }
@@ -344,7 +369,11 @@ impl Tui {
 
         // Calculate the visible boundaries safely
         let start_idx = if x < 0 { (-x) as usize } else { 0 };
-        let end_idx = if x + len > cols { (cols - x) as usize } else { s.len() };
+        let end_idx = if x + len > cols {
+            (cols - x) as usize
+        } else {
+            s.len()
+        };
 
         // Slice and draw
         if start_idx < end_idx && end_idx <= s.len() {
@@ -356,8 +385,8 @@ impl Tui {
         Ok(())
     }
 
-    fn add_man(&mut self, y: i32, x: i32) -> Result<()> {
-        let idx = ((LOGOLENGTH + x) / 12 % 2) as usize;
+    fn add_man(&mut self, y: i32, x: i32, train_length: i32) -> Result<()> {
+        let idx = ((train_length + x) / 12 % 2) as usize;
         let frame = MAN_FRAMES[idx];
         for (i, s) in frame.iter().enumerate() {
             self.draw_text(y + i as i32, x, s)?;
@@ -366,7 +395,7 @@ impl Tui {
     }
 
     // return true while the train is visible on screen
-    fn render_train(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
+    fn render_train(&mut self, env: &mut SmokePlume, args: &Config, x: i32) -> Result<bool> {
         let visible = match args.train {
             Train::Logo => self.render_logo(env, args, x)?,
             Train::C51 => self.render_c51(env, args, x)?,
@@ -376,7 +405,7 @@ impl Tui {
         Ok(visible)
     }
 
-    fn render_logo(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
+    fn render_logo(&mut self, env: &mut SmokePlume, args: &Config, x: i32) -> Result<bool> {
         if x < -LOGOLENGTH {
             return Ok(false);
         }
@@ -408,17 +437,17 @@ impl Tui {
         self.draw_lines(y + py3, x + 63, &LOGO_CAR)?;
 
         if args.accident {
-            self.add_man(y + 1, x + 14)?;
-            self.add_man(y + 1 + py2, x + 45)?;
-            self.add_man(y + 1 + py2, x + 53)?;
-            self.add_man(y + 1 + py3, x + 66)?;
-            self.add_man(y + 1 + py3, x + 74)?;
+            self.add_man(y + 1, x + 14, LOGOLENGTH)?;
+            self.add_man(y + 1 + py2, x + 45, LOGOLENGTH)?;
+            self.add_man(y + 1 + py2, x + 53, LOGOLENGTH)?;
+            self.add_man(y + 1 + py3, x + 66, LOGOLENGTH)?;
+            self.add_man(y + 1 + py3, x + 74, LOGOLENGTH)?;
         }
         env.add_smoke(self, y - 1, x + LOGOFUNNEL)?;
         Ok(true)
     }
 
-    fn render_d51(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
+    fn render_d51(&mut self, env: &mut SmokePlume, args: &Config, x: i32) -> Result<bool> {
         if x < -D51LENGTH {
             return Ok(false);
         }
@@ -444,8 +473,8 @@ impl Tui {
         self.draw_lines(y + dy, x + car_x_offset, &D51_COAL)?;
 
         if args.accident {
-            self.add_man(y + 2, x + 43)?;
-            self.add_man(y + 2, x + 47)?;
+            self.add_man(y + 2, x + 43, D51LENGTH)?;
+            self.add_man(y + 2, x + 47, D51LENGTH)?;
         }
         env.add_smoke(self, y - 1, x + D51FUNNEL)?;
         Ok(true)
@@ -458,7 +487,7 @@ impl Tui {
         Ok(())
     }
 
-    fn render_c51(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
+    fn render_c51(&mut self, env: &mut SmokePlume, args: &Config, x: i32) -> Result<bool> {
         if x < -C51LENGTH {
             return Ok(false);
         }
@@ -484,8 +513,8 @@ impl Tui {
         self.draw_lines(y + dy, x + car_x_offset, &C51_COAL)?;
 
         if args.accident {
-            self.add_man(y + 3, x + 45)?;
-            self.add_man(y + 3, x + 49)?;
+            self.add_man(y + 3, x + 45, C51LENGTH)?;
+            self.add_man(y + 3, x + 49, C51LENGTH)?;
         }
         env.add_smoke(self, y - 1, x + C51FUNNEL)?;
         Ok(true)
@@ -497,12 +526,9 @@ fn main() -> Result<()> {
     let mut tui = Tui::new()?;
 
     let mut x = tui.cols as i32 - 1;
-    let mut env = SmokeEnv {
-        smokes: Vec::new(),
-        smoke_count: 0,
-    };
+    let mut plume = SmokePlume::new();
 
-    while tui.render_train(&mut env, &args, x)? {
+    while tui.render_train(&mut plume, &args, x)? {
         // Check for interrupt signal (Ctrl+C) early exit
         if poll(Duration::from_millis(40))?
             && let Event::Key(event) = read()?
