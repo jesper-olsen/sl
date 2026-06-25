@@ -1,3 +1,4 @@
+use clap::{Parser, ValueEnum};
 use crossterm::{
     cursor::MoveTo,
     event::{Event, KeyCode, KeyModifiers, poll, read},
@@ -6,6 +7,26 @@ use crossterm::{
 };
 use std::io::{Result, Write};
 use std::time::Duration;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about = "Steam Locomotive (sl) in Rust", long_about = None)]
+struct Config {
+    #[arg(short = 'a', help = "Accident - people cry for help")]
+    accident: bool,
+
+    #[arg(short = 'F', help = "Fly - train flies")]
+    fly: bool,
+
+    #[arg(
+        short = 't',
+        long = "train",
+        value_enum,
+        ignore_case = true,
+        default_value_t = Train::D51,
+        help = "Choose the train model (d51, c51, or logo)"
+    )]
+    train: Train,
+}
 
 // --- D51 Constants ---
 const D51HEIGHT: i32 = 10;
@@ -227,15 +248,15 @@ impl SmokeEnv {
     fn add_smoke(&mut self, tui: &mut Tui, y: i32, x: i32) -> Result<()> {
         if x % 4 == 0 {
             for smoke in &mut self.smokes {
-                tui.my_mvaddstr(smoke.y, smoke.x, ERASER[smoke.frame])?;
+                tui.draw_text(smoke.y, smoke.x, ERASER[smoke.frame])?;
                 smoke.y -= DY[smoke.frame];
                 smoke.x += DX[smoke.frame];
                 if smoke.frame < SMOKEPTNS - 1 {
                     smoke.frame += 1;
                 }
-                tui.my_mvaddstr(smoke.y, smoke.x, SMOKE[smoke.kind][smoke.frame])?;
+                tui.draw_text(smoke.y, smoke.x, SMOKE[smoke.kind][smoke.frame])?;
             }
-            tui.my_mvaddstr(y, x, SMOKE[self.smoke_count % 2][0])?;
+            tui.draw_text(y, x, SMOKE[self.smoke_count % 2][0])?;
             self.smokes.push(Smoke {
                 y,
                 x,
@@ -248,7 +269,6 @@ impl SmokeEnv {
     }
 }
 
-// --- Train Logic ---
 // Make sure terminal raw mode is disabled before exit
 pub struct TerminalGuard;
 
@@ -263,13 +283,7 @@ impl Drop for TerminalGuard {
     }
 }
 
-// --- State Structs ---
-struct State {
-    accident: bool,
-    train: Train,
-    fly: bool,
-}
-
+#[derive(Debug, Clone, ValueEnum)]
 enum Train {
     C51,
     D51,
@@ -285,7 +299,7 @@ struct Tui {
 
 impl Tui {
     fn new() -> Result<Self> {
-        let mut stdout=std::io::stdout();
+        let mut stdout = std::io::stdout();
         crossterm::execute!(
             stdout,
             crossterm::style::ResetColor,
@@ -306,16 +320,39 @@ impl Tui {
         })
     }
 
-    fn my_mvaddstr(&mut self, y: i32, x: i32, s: &str) -> Result<()> {
+    //fn draw_text(&mut self, y: i32, x: i32, s: &str) -> Result<()> {
+    //    let (rows, cols) = (self.rows as i32, self.cols as i32);
+    //    if (0..rows).contains(&y) {
+    //        for (i, c) in s.chars().enumerate() {
+    //            let x = x + i as i32;
+    //            if (0..cols).contains(&x) {
+    //                queue!(self.stdout, MoveTo(x as u16, y as u16), Print(c))?;
+    //            }
+    //        }
+    //    }
+    //    Ok(())
+    //}
+
+    fn draw_text(&mut self, y: i32, x: i32, s: &str) -> Result<()> {
         let (rows, cols) = (self.rows as i32, self.cols as i32);
-        if (0..rows).contains(&y) {
-            for (i, c) in s.chars().enumerate() {
-                let x = x + i as i32;
-                if (0..cols).contains(&x) {
-                    queue!(self.stdout, MoveTo(x as u16, y as u16), Print(c))?;
-                }
-            }
+
+        // Skip if completely off-screen vertically or horizontally
+        let len = s.len() as i32;
+        if y < 0 || y >= rows || x >= cols || x + len <= 0 {
+            return Ok(());
         }
+
+        // Calculate the visible boundaries safely
+        let start_idx = if x < 0 { (-x) as usize } else { 0 };
+        let end_idx = if x + len > cols { (cols - x) as usize } else { s.len() };
+
+        // Slice and draw
+        if start_idx < end_idx && end_idx <= s.len() {
+            let visible_s = &s[start_idx..end_idx];
+            let draw_x = if x < 0 { 0 } else { x } as u16;
+            queue!(self.stdout, MoveTo(draw_x, y as u16), Print(visible_s))?;
+        }
+
         Ok(())
     }
 
@@ -323,23 +360,23 @@ impl Tui {
         let idx = ((LOGOLENGTH + x) / 12 % 2) as usize;
         let frame = MAN_FRAMES[idx];
         for (i, s) in frame.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32, x, s)?;
+            self.draw_text(y + i as i32, x, s)?;
         }
         Ok(())
     }
 
     // return true while the train is visible on screen
-    fn render_train(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
-        let visible = match state.train {
-            Train::Logo => self.render_sl(env, state, x)?,
-            Train::C51 => self.render_c51(env, state, x)?,
-            Train::D51 => self.render_d51(env, state, x)?,
+    fn render_train(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
+        let visible = match args.train {
+            Train::Logo => self.render_logo(env, args, x)?,
+            Train::C51 => self.render_c51(env, args, x)?,
+            Train::D51 => self.render_d51(env, args, x)?,
         };
         self.stdout.flush()?;
         Ok(visible)
     }
 
-    fn render_sl(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+    fn render_logo(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
         if x < -LOGOLENGTH {
             return Ok(false);
         }
@@ -349,7 +386,7 @@ impl Tui {
         let mut py2 = 0;
         let mut py3 = 0;
 
-        if state.fly {
+        if args.fly {
             y = (x / 6) + (self.rows as i32) - (self.cols as i32 / 6) - LOGOHEIGHT;
             py1 = 2;
             py2 = 4;
@@ -361,16 +398,16 @@ impl Tui {
         // Render train body + animated wheels below the body
         self.draw_lines(y, x, &LOGO_BODY)?;
         let height = LOGO_BODY.len() as i32;
-        self.draw_lines(y+height, x, &LOGO_WHEELS[ptn])?;
+        self.draw_lines(y + height, x, &LOGO_WHEELS[ptn])?;
         let height = height + LOGO_WHEELS[0].len() as i32;
-        self.my_mvaddstr(y + height, x, LOGO_ERASER)?;
+        self.draw_text(y + height, x, LOGO_ERASER)?;
 
         // Render the attached cars
-        self.draw_lines(y+py1, x+21, &LOGO_COAL)?;
-        self.draw_lines(y+py2, x+42, &LOGO_CAR)?;
-        self.draw_lines(y+py3, x+63, &LOGO_CAR)?;
+        self.draw_lines(y + py1, x + 21, &LOGO_COAL)?;
+        self.draw_lines(y + py2, x + 42, &LOGO_CAR)?;
+        self.draw_lines(y + py3, x + 63, &LOGO_CAR)?;
 
-        if state.accident {
+        if args.accident {
             self.add_man(y + 1, x + 14)?;
             self.add_man(y + 1 + py2, x + 45)?;
             self.add_man(y + 1 + py2, x + 53)?;
@@ -381,14 +418,14 @@ impl Tui {
         Ok(true)
     }
 
-    fn render_d51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+    fn render_d51(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
         if x < -D51LENGTH {
             return Ok(false);
         }
         let mut y = (self.rows as i32) / 2 - 5;
         let mut dy = 0;
 
-        if state.fly {
+        if args.fly {
             y = (x / 7) + (self.rows as i32) - (self.cols as i32 / 7) - D51HEIGHT;
             dy = 1;
         }
@@ -398,15 +435,15 @@ impl Tui {
         // Render train body + animated wheels below the body
         self.draw_lines(y, x, &D51_BODY)?;
         let height = D51_BODY.len() as i32;
-        self.draw_lines(y+height, x, &D51_WHEELS[ptn])?;
+        self.draw_lines(y + height, x, &D51_WHEELS[ptn])?;
         let height = height + D51_WHEELS[0].len() as i32;
-        self.my_mvaddstr(y + height, x, WHEELS_ERASER)?;
+        self.draw_text(y + height, x, WHEELS_ERASER)?;
 
         // Render the attached coal car
         let car_x_offset = 53;
-        self.draw_lines(y+dy, x+car_x_offset, &D51_COAL)?;
+        self.draw_lines(y + dy, x + car_x_offset, &D51_COAL)?;
 
-        if state.accident {
+        if args.accident {
             self.add_man(y + 2, x + 43)?;
             self.add_man(y + 2, x + 47)?;
         }
@@ -414,26 +451,21 @@ impl Tui {
         Ok(true)
     }
 
-    fn draw_lines(
-        &mut self,
-        y: i32,
-        x: i32,
-        lines: &[&str],
-    ) -> Result<()> {
+    fn draw_lines(&mut self, y: i32, x: i32, lines: &[&str]) -> Result<()> {
         for (i, line) in lines.iter().enumerate() {
-            self.my_mvaddstr(y + i as i32, x, line)?;
+            self.draw_text(y + i as i32, x, line)?;
         }
         Ok(())
     }
 
-    fn render_c51(&mut self, env: &mut SmokeEnv, state: &State, x: i32) -> Result<bool> {
+    fn render_c51(&mut self, env: &mut SmokeEnv, args: &Config, x: i32) -> Result<bool> {
         if x < -C51LENGTH {
             return Ok(false);
         }
         let mut y = (self.rows as i32) / 2 - 5;
         let mut dy = 0;
 
-        if state.fly {
+        if args.fly {
             y = (x / 7) + (self.rows as i32) - (self.cols as i32 / 7) - C51HEIGHT;
             dy = 1;
         }
@@ -443,15 +475,15 @@ impl Tui {
         // Render train body + animated wheels below the body
         self.draw_lines(y, x, &C51_BODY)?;
         let height = C51_BODY.len() as i32;
-        self.draw_lines(y+height, x, &C51_WHEELS[ptn])?;
+        self.draw_lines(y + height, x, &C51_WHEELS[ptn])?;
         let height = height + C51_WHEELS[0].len() as i32;
-        self.my_mvaddstr(y + height, x, WHEELS_ERASER)?;
+        self.draw_text(y + height, x, WHEELS_ERASER)?;
 
         // Render the attached coal car
         let car_x_offset = 55;
-        self.draw_lines(y+dy, x+car_x_offset, &C51_COAL)?;
+        self.draw_lines(y + dy, x + car_x_offset, &C51_COAL)?;
 
-        if state.accident {
+        if args.accident {
             self.add_man(y + 3, x + 45)?;
             self.add_man(y + 3, x + 49)?;
         }
@@ -461,28 +493,8 @@ impl Tui {
 }
 
 fn main() -> Result<()> {
+    let args = Config::parse();
     let mut tui = Tui::new()?;
-
-    let mut state = State {
-        accident: false,
-        fly: false,
-        train: Train::D51,
-    };
-
-    // Parse command line arguments
-    for arg in std::env::args().skip(1) {
-        if arg.starts_with('-') {
-            for c in arg.chars().skip(1) {
-                match c {
-                    'a' => state.accident = true,
-                    'F' => state.fly = true,
-                    'l' => state.train = Train::Logo,
-                    'c' => state.train = Train::C51,
-                    _ => {}
-                }
-            }
-        }
-    }
 
     let mut x = tui.cols as i32 - 1;
     let mut env = SmokeEnv {
@@ -490,17 +502,15 @@ fn main() -> Result<()> {
         smoke_count: 0,
     };
 
-    while tui.render_train(&mut env, &state, x)? {
+    while tui.render_train(&mut env, &args, x)? {
         // Check for interrupt signal (Ctrl+C) early exit
-        if poll(Duration::from_millis(0))?
+        if poll(Duration::from_millis(40))?
             && let Event::Key(event) = read()?
             && event.code == KeyCode::Char('c')
             && event.modifiers.contains(KeyModifiers::CONTROL)
         {
             break;
         }
-
-        std::thread::sleep(Duration::from_millis(40));
         x -= 1;
     }
     Ok(())
