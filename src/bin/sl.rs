@@ -5,6 +5,7 @@ use crossterm::{
     queue,
     style::Print,
 };
+use std::collections::VecDeque;
 use std::io::{Result, Write};
 use std::time::Duration;
 
@@ -233,63 +234,81 @@ const ERASER: [&str; SMOKEPTNS] = [
 const DY: [i32; SMOKEPTNS] = [2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const DX: [i32; SMOKEPTNS] = [-2, -1, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3];
 
+#[derive(Debug, Clone, Copy, Default)]
+enum PuffKind {
+    Black = 0,
+    #[default]
+    White,
+}
+
+impl PuffKind {
+    fn succ(&self) -> Self {
+        match self {
+            PuffKind::Black => PuffKind::White,
+            PuffKind::White => PuffKind::Black,
+        }
+    }
+}
+
 struct SmokePuff {
     y: i32,
     x: i32,
     frame: usize,
-    kind: usize,
+    kind: PuffKind,
 }
 
 struct SmokePlume {
-    puffs: Vec<SmokePuff>,
+    puffs: VecDeque<SmokePuff>,
+    next_puff: PuffKind,
 }
 
 impl SmokePlume {
     fn new() -> Self {
-        SmokePlume { puffs: Vec::new() }
+        SmokePlume {
+            // Pre-allocate capacity to avoid reallocation
+            puffs: VecDeque::with_capacity(256),
+            next_puff: PuffKind::default(),
+        }
     }
 
     fn add_smoke(&mut self, tui: &mut Tui, y: i32, x: i32) -> Result<()> {
-        if x % 4 == 0 {
-            let mut i = 0;
-            while i < self.puffs.len() {
-                // Erase the old position
-                tui.draw_text(
-                    self.puffs[i].y,
-                    self.puffs[i].x,
-                    ERASER[self.puffs[i].frame],
-                )?;
-
-                // Update positions - fixed trajectory
-                self.puffs[i].y -= DY[self.puffs[i].frame];
-                self.puffs[i].x += DX[self.puffs[i].frame];
-
-                if self.puffs[i].frame < SMOKEPTNS - 1 {
-                    self.puffs[i].frame += 1;
-                }
-
-                // check if still on screen - leaves right side of the screen
-                if self.puffs[i].x >= tui.cols.into() {
-                    self.puffs.swap_remove(i); // O(1) - swap last element in
-                } else {
-                    tui.draw_text(
-                        self.puffs[i].y,
-                        self.puffs[i].x,
-                        SMOKE[self.puffs[i].kind][self.puffs[i].frame],
-                    )?;
-                    i += 1;
-                }
-            }
-
-            // Add a brand new puff at the locomotive's funnel position
-            tui.draw_text(y, x, SMOKE[self.puffs.len() % 2][0])?;
-            self.puffs.push(SmokePuff {
-                y,
-                x,
-                frame: 0,
-                kind: self.puffs.len() % 2,
-            });
+        if x % 4 != 0 {
+            return Ok(());
         }
+
+        // Update and draw existing puffs
+        for puff in &mut self.puffs {
+            tui.draw_text(puff.y, puff.x, ERASER[puff.frame])?; // Erase old 
+
+            // Update positions
+            puff.y -= DY[puff.frame];
+            puff.x += DX[puff.frame];
+
+            if puff.frame < SMOKEPTNS - 1 {
+                puff.frame += 1;
+            }
+            tui.draw_text(puff.y, puff.x, SMOKE[puff.kind as usize][puff.frame])?;
+        }
+
+        // Add new puff at the funnel
+        let kind = self.next_puff;
+        tui.draw_text(y, x, SMOKE[kind as usize][0])?;
+
+        self.puffs.push_back(SmokePuff {
+            y,
+            x,
+            frame: 0,
+            kind,
+        });
+        self.next_puff = self.next_puff.succ();
+
+        // Cap the length
+        // A puff is added every 4 'x' units. Capping at 256 means we retain
+        // smoke history for 1,024 terminal columns - more than enough
+        if self.puffs.len() > 256 {
+            self.puffs.pop_front();
+        }
+
         Ok(())
     }
 }
@@ -366,6 +385,10 @@ impl Tui {
         if y < 0 || y >= rows || x >= cols || x + len <= 0 {
             return Ok(());
         }
+        debug_assert!(
+            s.is_ascii(),
+            "draw_text assumes pure ASCII for safe byte slicing"
+        );
 
         // Calculate the visible boundaries safely
         let start_idx = if x < 0 { (-x) as usize } else { 0 };
@@ -530,7 +553,8 @@ fn main() -> Result<()> {
 
     while tui.render_train(&mut plume, &args, x)? {
         // Check for interrupt signal (Ctrl+C) early exit
-        if poll(Duration::from_millis(40))?
+        const FRAME_DURATION: Duration = Duration::from_millis(40);
+        if poll(FRAME_DURATION)?
             && let Event::Key(event) = read()?
             && event.code == KeyCode::Char('c')
             && event.modifiers.contains(KeyModifiers::CONTROL)
