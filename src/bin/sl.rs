@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use crossterm::{
     cursor::MoveTo,
     event::{Event, KeyCode, KeyModifiers, poll, read},
@@ -18,15 +18,19 @@ struct Config {
     #[arg(short = 'F', help = "Fly - train flies")]
     fly: bool,
 
+    #[arg(short = 'c', long = "c51", help = "Model C51", conflicts_with = "logo")]
+    c51: bool,
+
     #[arg(
-        short = 't',
-        long = "train",
-        value_enum,
-        ignore_case = true,
-        default_value_t = Train::D51,
-        help = "Choose the train model (d51, c51, or logo)"
+        short = 'l',
+        long = "logo",
+        help = "Model SL Logo",
+        conflicts_with = "c51"
     )]
-    train: Train,
+    logo: bool,
+
+    #[arg(short = '1', long = "one", help = "Start at screen bottom")]
+    one: bool,
 }
 
 // --- D51 Constants ---
@@ -327,13 +331,6 @@ impl Drop for TerminalGuard {
     }
 }
 
-#[derive(Debug, Clone, ValueEnum)]
-enum Train {
-    C51,
-    D51,
-    Logo,
-}
-
 struct Tui {
     _guard: TerminalGuard,
     stdout: std::io::Stdout,
@@ -419,10 +416,12 @@ impl Tui {
 
     // return true while the train is visible on screen
     fn render_train(&mut self, env: &mut SmokePlume, args: &Config, x: i32) -> Result<bool> {
-        let visible = match args.train {
-            Train::Logo => self.render_logo(env, args, x)?,
-            Train::C51 => self.render_c51(env, args, x)?,
-            Train::D51 => self.render_d51(env, args, x)?,
+        let visible = if args.logo {
+            self.render_logo(env, args, x)?
+        } else if args.c51 {
+            self.render_c51(env, args, x)?
+        } else {
+            self.render_d51(env, args, x)?
         };
         self.stdout.flush()?;
         Ok(visible)
@@ -433,7 +432,11 @@ impl Tui {
             return Ok(false);
         }
 
-        let mut y = (self.rows as i32) / 2 - 3;
+        let mut y = if args.one {
+            self.rows as i32 - LOGOHEIGHT
+        } else {
+            (self.rows as i32) / 2 - 3
+        };
         let mut py1 = 0;
         let mut py2 = 0;
         let mut py3 = 0;
@@ -474,7 +477,11 @@ impl Tui {
         if x < -D51LENGTH {
             return Ok(false);
         }
-        let mut y = (self.rows as i32) / 2 - 5;
+        let mut y = if args.one {
+            self.rows as i32 - D51HEIGHT
+        } else {
+            (self.rows as i32) / 2 - 5
+        };
         let mut dy = 0;
 
         if args.fly {
@@ -514,7 +521,11 @@ impl Tui {
         if x < -C51LENGTH {
             return Ok(false);
         }
-        let mut y = (self.rows as i32) / 2 - 5;
+        let mut y = if args.one {
+            self.rows as i32 - C51HEIGHT
+        } else {
+            (self.rows as i32) / 2 - 5
+        };
         let mut dy = 0;
 
         if args.fly {
